@@ -128,7 +128,7 @@ struct note_offset {
 };
 
 static struct note_offset bass[] = {
-  {"D", "g3"}
+  {"D", "g3"},
 };
 
 int main(int argc, char **argv)
@@ -139,8 +139,24 @@ double semitones;
 double delta;
 int root;
 int i;
+int time;
 
   setlocale(LC_ALL, getenv("LANG"));
+
+  printf("0, 0, Header, 1, 2, 480\n");
+  printf("1, 0, Start_track\n");
+  printf("1, 0, Time_signature, 4, 2, 24, 8\n");
+  printf("1, 0, Tempo, 500000\n");
+  printf("1, 0, End_track\n");
+  printf("2, 0, Start_track\n");
+  printf("2, 0, Program_c, 1, 33\n"); /* 33 = acoustic bass */
+  printf("2, 0, Control_c, 1, 10, 64\n"); /* pan */
+  printf("2, 0, Control_c, 2, 101, 0\n");
+  printf("2, 0, Control_c, 2, 100, 0\n"); /* RPN = 0 pitch bend sensitivity */
+  printf("2, 0, Control_c, 2, 38, 0\n");
+  printf("2, 0, Control_c, 2, 6, 2\n"); /* data entry */
+
+  time = 0;
 
   for (i=0; i<1; i++)
   {
@@ -152,8 +168,16 @@ int i;
     {
       root += 12;
     }
-    wprintf(L"%2ls %3d\n", chromatic_scale_flats[root], (int) round(delta*100.0));
+    printf("2, %d, Pitch_bend_c, 2, %d\n", time,
+      8192 + (int) round(4096.0 * delta));
+    printf("2, %d, Note_on_c, 1, %d, 81\n", time, root + 52);
+    time += 480;
+    printf("2, %d, Note_off_c, 1, %d, 0\n", time, root + 52);
   }
+  time += 480;
+  printf("2, %d, End_track\n", time);
+  printf("0, 0, End_of_file\n");
+
   return 0;
 
 }
