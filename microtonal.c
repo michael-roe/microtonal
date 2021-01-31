@@ -125,21 +125,24 @@ int i;
 struct note_offset {
   char *base;
   char *interval;
+  int octave;
+  int duration;
 };
 
 static struct note_offset bass[] = {
-  {"D", "g3"},
+  {"A", "n3", 0, 4}
 };
 
 int main(int argc, char **argv)
 {
-char *base = "D";
-char *interval = "g3";
 double semitones;
+int base;
 double delta;
 int root;
+int root_modulo;
 int i;
 int time;
+int play_chords = 1;
 
   setlocale(LC_ALL, getenv("LANG"));
 
@@ -147,32 +150,51 @@ int time;
   printf("1, 0, Start_track\n");
   printf("1, 0, Time_signature, 4, 2, 24, 8\n");
   printf("1, 0, Tempo, 500000\n");
+  printf("1, 0, Key_signature, -1, minor\n");
   printf("1, 0, End_track\n");
   printf("2, 0, Start_track\n");
   printf("2, 0, Program_c, 1, 33\n"); /* 33 = acoustic bass */
   printf("2, 0, Control_c, 1, 10, 64\n"); /* pan */
-  printf("2, 0, Control_c, 2, 101, 0\n");
-  printf("2, 0, Control_c, 2, 100, 0\n"); /* RPN = 0 pitch bend sensitivity */
-  printf("2, 0, Control_c, 2, 38, 0\n");
-  printf("2, 0, Control_c, 2, 6, 2\n"); /* data entry */
+  printf("2, 0, Control_c, 1, 101, 0\n");
+  printf("2, 0, Control_c, 1, 100, 0\n"); /* RPN = 0 pitch bend sensitivity */
+  printf("2, 0, Control_c, 1, 38, 0\n");
+  printf("2, 0, Control_c, 1, 6, 2\n"); /* data entry */
+  if (play_chords)
+  {
+    printf("2, 0, Program_c, 2, 1\n"); /* 1 = piano */
+    printf("2, 0, Control_c, 2, 10, 64\n"); /* pan */
+  }
 
   time = 0;
 
   for (i=0; i<1; i++)
   {
-    semitones = (double) chromatic_index(bass[i].base)
+    base = chromatic_index(bass[i].base);
+    semitones = (double) base
       - 12.0 * log(sruti_ratio(bass[i].interval))/log(2.0);
     delta = semitones - round(semitones);
     root = round(semitones);
-    if (root < 0)
+    root_modulo = root;
+    if (root_modulo < 0)
     {
-      root += 12;
+      root_modulo += 12;
     }
-    printf("2, %d, Pitch_bend_c, 2, %d\n", time,
+    printf("# %s %d\n", chromatic_scale[root_modulo], bass[i].duration);
+    printf("2, %d, Pitch_bend_c, 1, %d\n", time,
       8192 + (int) round(4096.0 * delta));
-    printf("2, %d, Note_on_c, 1, %d, 81\n", time, root + 52);
-    time += 480;
-    printf("2, %d, Note_off_c, 1, %d, 0\n", time, root + 52);
+    printf("2, %d, Note_on_c, 1, %d, 81\n", time,
+      52 + root + 12*bass[i].octave);
+    if (play_chords)
+    {
+      printf("2, %d, Note_on_c, 2, %d, 81\n", time, 64 + base);
+    }
+    time += 240*bass[i].duration;
+    printf("2, %d, Note_off_c, 1, %d, 0\n", time,
+      52 + root + 12*bass[i].octave);
+    if (play_chords)
+    {
+      printf("2, %d, Note_off_c, 2, %d, 81\n", time, 64 + base);
+    }
   }
   time += 480;
   printf("2, %d, End_track\n", time);
