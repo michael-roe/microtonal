@@ -126,11 +126,13 @@ struct note_offset {
   char *base;
   char *interval;
   int octave;
+  char *third;
+  int third_octave;
   int duration;
 };
 
 static struct note_offset bass[] = {
-  {"A", "n3", 0, 4}
+  {"A", "n3", 0, "g3", 0, 4}
 };
 
 int main(int argc, char **argv)
@@ -145,10 +147,14 @@ int track;
 int time;
 int play_chords = 1;
 double bpm = 95.0;
+double third;
+int third_rounded;
+int third_modulo;
+double third_delta;
 
   setlocale(LC_ALL, getenv("LANG"));
 
-  printf("0, 0, Header, 1, 2, 480\n");
+  printf("0, 0, Header, 1, 3, 480\n");
   printf("1, 0, Start_track\n");
   printf("1, 0, Time_signature, 4, 2, 24, 8\n");
   printf("1, 0, Tempo, %d\n", (int) (1.0E6*60.0/bpm));
@@ -171,6 +177,14 @@ double bpm = 95.0;
     {
       printf("%d, 0, Program_c, 2, 1\n", track); /* 1 = piano */
       printf("%d, 0, Control_c, 2, 10, 64\n", track); /* pan */
+      printf("%d, 0, Program_c, 3, 1\n", track); /* 1 = piano */
+      printf("%d, 0, Control_c, 3, 10, 64\n", track); /* pan */
+      printf("%d, 0, Control_c, 3, 101, 0\n", track);
+      printf("%d, 0, Control_c, 3, 100, 0\n", track); /* RPN = 0 pitch bend sensitivity */
+      printf("%d, 0, Control_c, 3, 38, 0\n", track);
+      printf("%d, 0, Control_c, 3, 6, 2\n", track); /* data entry */
+      printf("%d, 0, Program_c, 4, 1\n", track); /* 1 = piano */
+      printf("%d, 0, Control_c, 4, 10, 64\n", track); /* pan */
     }
   
     time = 0;
@@ -199,6 +213,28 @@ double bpm = 95.0;
       else
       {
         printf("%d, %d, Note_on_c, 2, %d, 81\n", track, time, 60 + base);
+	if (bass[i].third)
+        {
+	  third = semitones + 12.0*log(sruti_ratio(bass[i].third))/log(2.0);
+	  third += 12.0*bass[i].third_octave;
+	  third_rounded = round(third);
+	  third_delta = third - (double) third_rounded;
+	  third_modulo = third_rounded;
+	  if (third_modulo > 12)
+	  {
+            third_modulo -= 12;
+	  }
+	  else if (third_modulo < 0)
+	  {
+	    third_modulo += 12;
+	  }
+	  printf("# third = %s %lf (%d, %s)\n", chromatic_scale[third_modulo],
+            third_delta, third_rounded, bass[i].third);
+          printf("%d, %d, Pitch_bend_c, 3, %d\n", track, time,
+            8192 + (int) round(4096.0 * third_delta));
+	  printf("%d, %d, Note_on_c, 3, %d, 81\n", track, time,
+	    60 + third_rounded);
+	}
       }
       time += 240*bass[i].duration;
       if (track == 2)
@@ -209,6 +245,8 @@ double bpm = 95.0;
       else
       {
         printf("%d, %d, Note_off_c, 2, %d, 81\n", track, time, 60 + base);
+	printf("%d, %d, Note_off_c, 3, %d, 81\n", track, time,
+          60 + third_rounded);
       }
     }
     time += 480;
