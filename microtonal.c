@@ -128,11 +128,15 @@ struct note_offset {
   int octave;
   char *third;
   int third_octave;
+  char *seventh;
+  int seventh_octave;
+  char *ninth;
+  int ninth_octave;
   int duration;
 };
 
 static struct note_offset bass[] = {
-  {"A", "n3", 0, "g3", 0, 4}
+  {"A", "n3",   0, "g3", 0, "n3",  0, "r4", 1, 4}
 };
 
 int main(int argc, char **argv)
@@ -151,6 +155,10 @@ double third;
 int third_rounded;
 int third_modulo;
 double third_delta;
+double seventh;
+int seventh_rounded;
+int seventh_modulo;
+double seventh_delta;
 
   setlocale(LC_ALL, getenv("LANG"));
 
@@ -166,7 +174,7 @@ double third_delta;
     printf("%d, 0, Start_track\n", track);
     if (track == 2)
     {
-      printf("%d, 0, Program_c, 1, 33\n", track); /* 33 = acoustic bass */
+      printf("%d, 0, Program_c, 1, 68\n", track); /* 68 = baritone sax */
       printf("%d, 0, Control_c, 1, 10, 64\n", track); /* pan */
       printf("%d, 0, Control_c, 1, 101, 0\n", track);
       printf("%d, 0, Control_c, 1, 100, 0\n", track); /* RPN = 0 pitch bend sensitivity */
@@ -175,15 +183,15 @@ double third_delta;
     }
     else
     {
-      printf("%d, 0, Program_c, 2, 1\n", track); /* 1 = piano */
+      printf("%d, 0, Program_c, 2, 70\n", track); /* 70 = English horn */
       printf("%d, 0, Control_c, 2, 10, 64\n", track); /* pan */
-      printf("%d, 0, Program_c, 3, 1\n", track); /* 1 = piano */
+      printf("%d, 0, Program_c, 3, 70\n", track); /* 70 = English horn */
       printf("%d, 0, Control_c, 3, 10, 64\n", track); /* pan */
       printf("%d, 0, Control_c, 3, 101, 0\n", track);
       printf("%d, 0, Control_c, 3, 100, 0\n", track); /* RPN = 0 pitch bend sensitivity */
       printf("%d, 0, Control_c, 3, 38, 0\n", track);
       printf("%d, 0, Control_c, 3, 6, 2\n", track); /* data entry */
-      printf("%d, 0, Program_c, 4, 1\n", track); /* 1 = piano */
+      printf("%d, 0, Program_c, 4, 70\n", track); /* 70 = English horn */
       printf("%d, 0, Control_c, 4, 10, 64\n", track); /* pan */
     }
   
@@ -201,14 +209,17 @@ double third_delta;
       {
         root_modulo += 12;
       }
-      printf("# %s %d\n", chromatic_scale[root_modulo], bass[i].duration);
+      printf("# %s %lf  %d\n", chromatic_scale[root_modulo], delta,
+        bass[i].duration);
       printf("# %lf (31TET)\n", 31.0*log(sruti_ratio(bass[i].interval))/log(2.0));
       if (track == 2)
       {
+#if 0
         printf("%d, %d, Pitch_bend_c, 1, %d\n", track, time,
           8192 + (int) round(4096.0 * delta));
         printf("%d, %d, Note_on_c, 1, %d, 81\n", track, time,
           48 + root + 12*bass[i].octave);
+#endif
       }
       else
       {
@@ -235,18 +246,50 @@ double third_delta;
 	  printf("%d, %d, Note_on_c, 3, %d, 81\n", track, time,
 	    60 + third_rounded);
 	}
+	if (bass[i].seventh)
+        {
+	  seventh = semitones + 12.0*log(sruti_ratio(bass[i].seventh))/log(2.0);
+	  seventh += 12.0*bass[i].seventh_octave;
+	  seventh_rounded = round(seventh);
+	  seventh_delta = seventh - (double) seventh_rounded;
+	  seventh_modulo = seventh_rounded;
+	  if (seventh_modulo > 12)
+	  {
+            seventh_modulo -= 12;
+	  }
+	  else if (seventh_modulo < 0)
+	  {
+	    seventh_modulo += 12;
+	  }
+	  printf("# seventh = %s %lf (%d, %s)\n", chromatic_scale[seventh_modulo],
+            seventh_delta, seventh_rounded, bass[i].seventh);
+          printf("%d, %d, Pitch_bend_c, 4, %d\n", track, time,
+            8192 + (int) round(4096.0 * seventh_delta));
+	  printf("%d, %d, Note_on_c, 4, %d, 81\n", track, time,
+	    60 + seventh_rounded);
+	}
       }
       time += 240*bass[i].duration;
       if (track == 2)
       {
+#if 0
         printf("%d, %d, Note_off_c, 1, %d, 0\n", track, time,
           48 + root + 12*bass[i].octave);
+#endif
       }
       else
       {
         printf("%d, %d, Note_off_c, 2, %d, 81\n", track, time, 60 + base);
-	printf("%d, %d, Note_off_c, 3, %d, 81\n", track, time,
-          60 + third_rounded);
+	if (bass[i].third)
+        {
+	  printf("%d, %d, Note_off_c, 3, %d, 81\n", track, time,
+            60 + third_rounded);
+	}
+	if (bass[i].seventh)
+        {
+	  printf("%d, %d, Note_off_c, 4, %d, 81\n", track, time,
+            60 + seventh_rounded);
+	}
       }
     }
     time += 480;
