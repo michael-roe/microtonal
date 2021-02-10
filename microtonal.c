@@ -159,6 +159,10 @@ double seventh;
 int seventh_rounded;
 int seventh_modulo;
 double seventh_delta;
+double ninth;
+int ninth_rounded;
+int ninth_modulo;
+double ninth_delta;
 
   setlocale(LC_ALL, getenv("LANG"));
 
@@ -193,6 +197,12 @@ double seventh_delta;
       printf("%d, 0, Control_c, 3, 6, 2\n", track); /* data entry */
       printf("%d, 0, Program_c, 4, 70\n", track); /* 70 = English horn */
       printf("%d, 0, Control_c, 4, 10, 64\n", track); /* pan */
+      printf("%d, 0, Control_c, 4, 101, 0\n", track);
+      printf("%d, 0, Control_c, 4, 100, 0\n", track); /* RPN = 0 pitch bend sensitivity */
+      printf("%d, 0, Control_c, 4, 38, 0\n", track);
+      printf("%d, 0, Control_c, 4, 6, 2\n", track); /* data entry */
+      printf("%d, 0, Program_c, 5, 70\n", track);
+      printf("%d, 0, Control_c, 5, 10, 64\n", track); /* pan */
     }
   
     time = 0;
@@ -209,21 +219,19 @@ double seventh_delta;
       {
         root_modulo += 12;
       }
+      printf("# note number %d\n", i + 1);
       printf("# %s %lf  %d\n", chromatic_scale[root_modulo], delta,
         bass[i].duration);
       printf("# %lf (31TET)\n", 31.0*log(sruti_ratio(bass[i].interval))/log(2.0));
       if (track == 2)
       {
-#if 0
         printf("%d, %d, Pitch_bend_c, 1, %d\n", track, time,
           8192 + (int) round(4096.0 * delta));
         printf("%d, %d, Note_on_c, 1, %d, 81\n", track, time,
           48 + root + 12*bass[i].octave);
-#endif
       }
       else
       {
-        printf("%d, %d, Note_on_c, 2, %d, 81\n", track, time, 60 + base);
 	if (bass[i].third)
         {
 	  third = semitones + 12.0*log(sruti_ratio(bass[i].third))/log(2.0);
@@ -268,18 +276,37 @@ double seventh_delta;
 	  printf("%d, %d, Note_on_c, 4, %d, 81\n", track, time,
 	    60 + seventh_rounded);
 	}
+	if (bass[i].ninth)
+        {
+	  ninth = semitones + 12.0*log(sruti_ratio(bass[i].ninth))/log(2.0);
+	  ninth += 12.0*bass[i].ninth_octave;
+	  ninth_rounded = round(ninth);
+	  ninth_delta = ninth - (double) ninth_rounded;
+	  ninth_modulo = ninth_rounded;
+	  if (ninth_modulo > 12)
+	  {
+            ninth_modulo -= 12;
+	  }
+	  else if (ninth_modulo < 0)
+	  {
+	    ninth_modulo += 12;
+	  }
+	  printf("# ninth = %s %lf (%d, %s)\n", chromatic_scale[ninth_modulo],
+            ninth_delta, ninth_rounded, bass[i].ninth);
+          printf("%d, %d, Pitch_bend_c, 5, %d\n", track, time,
+            8192 + (int) round(4096.0 * ninth_delta));
+	  printf("%d, %d, Note_on_c, 5, %d, 81\n", track, time,
+	    60 + ninth_rounded);
+	}
       }
       time += 240*bass[i].duration;
       if (track == 2)
       {
-#if 0
         printf("%d, %d, Note_off_c, 1, %d, 0\n", track, time,
           48 + root + 12*bass[i].octave);
-#endif
       }
       else
       {
-        printf("%d, %d, Note_off_c, 2, %d, 81\n", track, time, 60 + base);
 	if (bass[i].third)
         {
 	  printf("%d, %d, Note_off_c, 3, %d, 81\n", track, time,
@@ -289,6 +316,11 @@ double seventh_delta;
         {
 	  printf("%d, %d, Note_off_c, 4, %d, 81\n", track, time,
             60 + seventh_rounded);
+	}
+	if (bass[i].ninth)
+        {
+	  printf("%d, %d, Note_off_c, 5, %d, 81\n", track, time,
+            60 + ninth_rounded);
 	}
       }
     }
