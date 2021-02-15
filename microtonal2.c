@@ -58,6 +58,7 @@ int i;
 
 struct chord {
   char *bass;
+  int bass_octave;
   char *note1;
   double ratio1;
   int octave1;
@@ -72,8 +73,8 @@ struct chord {
 };
 
 #define N_CHORDS 1
-struct chord chords[1] = {
-  {"A#", "D",  0.0,  0, "A",  0.0, 0, "C", 1, NULL, 4, 2}
+struct chord chords[N_CHORDS] = {
+  {"A#", 0, "D",  0.0,  0, "A",  0.0, 0, "C", 1, NULL, 4, 2},
 };
 
 static double tuning[12] = {
@@ -99,7 +100,7 @@ double fractional;
 int fractional_rounded;
 int i;
 
-  for (i=0; i<36; i++)
+  for (i=0; i<24; i++)
   {
     semitones = (double) 48.0 + 12.0*log(tuning[i % 12])/log(2.0);
     semitones += tuning_shift;
@@ -123,6 +124,7 @@ int n1;
 int n2;
 int n3;
 int bend1;
+int bend2;
 double syntonic_comma;
 double septimal_diesis;
 int bass_comma;
@@ -164,11 +166,18 @@ int index;
   printf("2, 0, Control_c, %d, 100, 4 # tuning bank\n", 1);
   printf("2, 0, Control_c, %d, 6, 0\n", 1);
   printf("2, 0, Control_c, %d, 100, 3 # tuning program change\n", 1);
+  printf("2, 0, Control_c, %d, 6, 0\n", 1);
+  printf("2, 0, Pitch_bend_c, %d, 1, 8192\n", 1);
+
+#if 0
+  time += 480.0*12; /* leave time for test scale */
+#endif
+
   bass_comma = 0;
   for (i=0; i<N_CHORDS; i++)
   {
     printf("2, %d, Control_c, %d, 6, %d\n", time, 1, chords[i].program);
-    n1 = chromatic_index(chords[i].bass) /* + 12*chords[i].octave1 */;
+    n1 = chromatic_index(chords[i].bass) + 12*chords[i].bass_octave;
     if (chords[i].bass_comma)
     {
       if (strcmp(chords[i].bass_comma, "7") == 0)
@@ -185,10 +194,11 @@ int index;
     }
     else if (bass_comma)
     {
+      fprintf(stderr, "Note %d: pitch bend to centre\n", i);
       printf("2, %d, Pitch_bend_c, 1, %d\n", time, 8192);
       bass_comma = 0;
     }
-    printf("2, %d, Note_on_c, 1, %d, 120\n", time, n1 + 36);
+    printf("2, %d, Note_on_c, 1, %d, 80\n", time, n1 + 36);
     time += 240*chords[i].duration;
     printf("2, %d, Note_off_c, 1, %d, 0\n", time, n1 + 36);
   }
@@ -209,23 +219,34 @@ int index;
     printf("3, 0, Control_c, %d, 100, 4 # tuning bank\n", i);
     printf("3, 0, Control_c, %d, 6, 0\n", i);
     printf("3, 0, Control_c, %d, 100, 3 # tuning program change\n", i);
-    printf("3, 0, Control_c, %d, 6, 2\n", i);
+    printf("3, 0, Control_c, %d, 6, 1\n", i);
   }
 
   time = 0;
 #if 0
   for (i=0; i<12; i++)
   {
-    printf("3, %d, Note_on_c, 2, %d, 81\n", time, 48 + tuning_shift + i);
-    printf("3, %d, Note_on_c, 3, %d, 81\n", time, 48 + 7 + tuning_shift + i);
-    printf("3, %d, Note_on_c, 4, %d, 81\n", time, 48 + 12 + tuning_shift + i);
+    pitch_bend = 12.0*log(tuning[i])/log(2.0) - i;
+    fprintf(stderr, "pitch_bend = %lf\n", pitch_bend);
+    printf("3, %d, Pitch_bend_c, 1, %d\n", time,
+      8192 + (int) round(4096.0 * pitch_bend));
+    printf("3, %d, Note_on_c, 1, %d, 81\n", time, 60 + tuning_shift + i);
+    printf("3, %d, Note_on_c, 2, %d, 81\n", time, 60 + tuning_shift + i);
+#if 0
+    printf("3, %d, Note_on_c, 3, %d, 81\n", time, 60 + 7 + tuning_shift + i);
+    printf("3, %d, Note_on_c, 4, %d, 81\n", time, 60 + 12 + tuning_shift + i);
+#endif
     time += 480;
-    printf("3, %d, Note_off_c, 2, %d, 0\n", time, 48 + tuning_shift + i);
-    printf("3, %d, Note_off_c, 3, %d, 0\n", time, 48 + 7 + tuning_shift + i);
-    printf("3, %d, Note_off_c, 4, %d, 0\n", time, 48 + 12 + tuning_shift + i);
+    printf("3, %d, Note_off_c, 1, %d, 0\n", time, 60 + tuning_shift + i);
+    printf("3, %d, Note_off_c, 2, %d, 0\n", time, 60 + tuning_shift + i);
+#if 0
+    printf("3, %d, Note_off_c, 3, %d, 0\n", time, 60 + 7 + tuning_shift + i);
+    printf("3, %d, Note_off_c, 4, %d, 0\n", time, 60 + 12 + tuning_shift + i);
+#endif
   }
 #endif
   bend1 = 0;
+  bend2 = 0;
   for (i=0; i<N_CHORDS; i++)
   {
     n1 = chromatic_index(chords[i].note1) + 12*chords[i].octave1;
@@ -252,6 +273,25 @@ int index;
     {
       printf("3, %d, Pitch_bend_c, 2, %d\n", time, 8192);
       bend1 = 0;
+    }
+    if (chords[i].ratio2 != 0.0)
+    {
+      index = (n1 - tuning_shift);
+      if (index < 0)
+      {
+        index += 12;
+      }
+      pitch_bend =  12.0*log(chords[i].ratio1)/log(2.0)
+        - 12.0*log(tuning[index])/log(2.0);
+      fprintf(stderr, "pitch_bend 2 = %lf\n", pitch_bend);
+      printf("3, %d, Pitch_bend_c, 3, %d\n", time,
+          8192 + (int) round(4096.0 * pitch_bend));
+      bend2 = 1;
+    }
+    else if (bend2)
+    {
+      printf("3, %d, Pitch_bend_c, 2, %d\n", time, 8192);
+      bend2 = 0;
     }
     printf("3, %d, Control_c, 2, 6, %d\n", time, chords[i].program);
     printf("3, %d, Control_c, 3, 6, %d\n", time, chords[i].program);
